@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天机掌纹 · 国风掌相占卜</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;900&display=swap');
+
+:root{
+  --ink:        #070d12;   /* 墨青夜空 */
+  --ink-2:      #0b141b;
+  --jade:       #6fe3c1;   /* 青玉 */
+  --jade-deep:  #2f9e84;
+  --gold:       #d9b36a;   /* 暗金 */
+  --gold-hi:    #f6dd9c;
+  --cinnabar:   #d4584a;   /* 朱砂（偏离警示） */
+  --paper:      #ece4cf;   /* 宣纸米白 */
+  --paper-dim:  #9aa294;
+  --paper-faint:#5d685f;
+  --panel:      rgba(10, 18, 24, 0.66);
+  --panel-line: rgba(217, 179, 106, 0.28);
+  --serif: 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', serif;
+  --calligraphy: 'Ma Shan Zheng', 'Kaiti SC', 'STKaiti', 'KaiTi', var(--serif);
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--serif);
+  overflow:hidden;
+  user-select:none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ───────── 分层：① 国风背景 ───────── */
+#bgCanvas{ position:fixed; inset:0; width:100%; height:100%; z-index:0; }
+.bg-wash{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgba(28,52,58,0.55), transparent 60%),
+    radial-gradient(90% 70% at 85% 100%, rgba(46,38,20,0.45), transparent 60%),
+    linear-gradient(180deg, rgba(4,8,11,0.2), rgba(4,8,11,0.66));
+}
+.cloud{
+  position:fixed; z-index:2; pointer-events:none; filter: blur(2px);
+  width:130vw; height:34vh; opacity:.5;
+  background:
+    radial-gradient(48% 90% at 20% 70%, rgba(120,150,150,0.10), transparent 70%),
+    radial-gradient(40% 80% at 55% 40%, rgba(150,170,160,0.08), transparent 70%),
+    radial-gradient(46% 90% at 85% 65%, rgba(110,140,140,0.09), transparent 70%);
+  animation: drift 90s linear infinite;
+}
+.cloud.c1{ bottom:-8vh; left:-20vw; }
+.cloud.c2{ top:6vh; left:-30vw; animation-duration:140s; opacity:.32; transform:scaleX(-1); }
+@keyframes drift{ from{ transform: translateX(0); } to{ transform: translateX(18vw); } }
+
+/* 可选视频层：将生成的五段视频放入 video/ 目录即可自动启用（见脚本顶部 VIDEO_SOURCES） */
+#stageVideo{
+  position:fixed; inset:0; width:100%; height:100%; object-fit:cover;
+  z-index:1; opacity:0; transition: opacity 1.2s ease; pointer-events:none;
+  filter: saturate(.95) brightness(.85);
+}
+#stageVideo.on{ opacity:.55; }
+
+/* ───────── 顶栏 ───────── */
+.topbar{
+  position:fixed; top:0; left:0; right:0; z-index:30;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 26px; pointer-events:none;
+}
+.brand{ display:flex; align-items:center; gap:12px; }
+.seal{
+  width:34px; height:34px; border-radius:6px;
+  background: linear-gradient(160deg, #b8493c, #8e3328);
+  color:#f3e3c8; font-family:var(--calligraphy);
+  display:flex; align-items:center; justify-content:center;
+  font-size:19px; line-height:1; letter-spacing:0;
+  box-shadow: 0 2px 14px rgba(180,73,60,.4), inset 0 0 0 1px rgba(243,227,200,.35);
+}
+.brand h1{
+  font-family: var(--calligraphy); font-weight:400;
+  font-size:1.35rem; letter-spacing:.28em; color:var(--gold-hi);
+  text-shadow: 0 0 22px rgba(217,179,106,.35);
+}
+.brand small{
+  display:block; font-family:var(--serif); font-size:.62rem;
+  letter-spacing:.5em; color:var(--paper-faint); margin-top:2px;
+}
+.top-actions{ display:flex; gap:10px; pointer-events:all; }
+.chip-btn{
+  font-family:var(--serif); font-size:.78rem; letter-spacing:.2em;
+  color:var(--paper-dim); background:rgba(10,18,24,.5);
+  border:1px solid rgba(217,179,106,.25); border-radius:999px;
+  padding:7px 16px 7px 18px; cursor:pointer; transition:.3s;
+  backdrop-filter: blur(8px);
+}
+.chip-btn:hover{ color:var(--gold-hi); border-color:rgba(217,179,106,.6); }
+.chip-btn.on{ color:var(--jade); border-color:rgba(111,227,193,.5); }
+
+/* ───────── 主舞台布局 ───────── */
+.stage{
+  position:fixed; inset:0; z-index:10;
+  display:flex; align-items:stretch;
+}
+.altar{                       /* 左侧 ~56%：天机盘区 */
+  flex:0 0 56%;
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+.altar-inner{
+  position:relative;
+  width:min(86%, 78vh); aspect-ratio:1/1;
+}
+#stoneCanvas, #handCanvas{
+  position:absolute; inset:0; width:100%; height:100%;
+}
+#handCanvas{ z-index:2; }
+
+/* 舞台提示（石下） */
+.altar-prompt{
+  position:absolute; left:50%; bottom:-2%; transform:translateX(-50%);
+  width:100%; text-align:center; z-index:5; pointer-events:none;
+}
+.altar-prompt .main{
+  font-size: clamp(1rem, 1.6vw, 1.25rem); letter-spacing:.3em;
+  color:var(--gold-hi); text-shadow:0 0 18px rgba(217,179,106,.4);
+  transition: color .4s;
+}
+.altar-prompt .main.jade{ color:var(--jade); text-shadow:0 0 18px rgba(111,227,193,.45); }
+.altar-prompt .main.warn{ color:#f0a08f; text-shadow:0 0 18px rgba(212,88,74,.5); }
+.altar-prompt .sub{
+  margin-top:8px; font-size:.78rem; letter-spacing:.34em;
+  color:var(--paper-dim); opacity:.85;
+}
+.altar-prompt .rules{
+  margin-top:12px; display:flex; gap:18px; justify-content:center;
+  font-size:.7rem; letter-spacing:.22em; color:var(--paper-faint);
+}
+.altar-prompt .rules span::before{ content:'· '; color:var(--gold); }
+
+/* 演示模式入口 */
+.demo-link{
+  position:absolute; left:50%; bottom:-9%; transform:translateX(-50%);
+  z-index:6; font-size:.68rem; letter-spacing:.3em; color:var(--paper-faint);
+  background:none; border:none; cursor:pointer; font-family:var(--serif);
+  border-bottom:1px dashed rgba(154,162,148,.4); padding-bottom:2px;
+  display:none;
+}
+.demo-link:hover{ color:var(--jade); border-color:rgba(111,227,193,.5); }
+
+/* 四节点加载步进 */
+.phases{
+  position:absolute; left:50%; bottom:-2%; transform:translateX(-50%);
+  display:none; gap:0; z-index:5; align-items:center;
+}
+.phases.show{ display:flex; }
+.phase{
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  width:84px; position:relative;
+}
+.phase::after{
+  content:''; position:absolute; top:7px; left:calc(50% + 12px);
+  width:calc(100% - 24px); height:1px;
+  background: linear-gradient(90deg, rgba(217,179,106,.5), rgba(217,179,106,.1));
+}
+.phase:last-child::after{ display:none; }
+.phase .dot{
+  width:14px; height:14px; border-radius:50%;
+  border:1px solid rgba(217,179,106,.5); background:rgba(10,18,24,.8);
+  transition:.5s;
+}
+.phase .name{ font-size:.74rem; letter-spacing:.28em; color:var(--paper-faint); transition:.5s; }
+.phase.active .dot{
+  background: var(--jade); border-color:var(--jade);
+  box-shadow:0 0 14px rgba(111,227,193,.8);
+}
+.phase.active .name{ color:var(--jade); }
+.phase.done .dot{ background:var(--gold); border-color:var(--gold); box-shadow:0 0 10px rgba(217,179,106,.6); }
+.phase.done .name{ color:var(--gold); }
+
+/* ───────── 右侧：天机结果卷轴 ───────── */
+.scroll-panel{
+  flex:1; position:relative; z-index:11;
+  margin:84px 30px 26px 0;
+  display:flex; flex-direction:column; min-width:0;
+}
+.scroll-frame{
+  flex:1; min-height:0; overflow-y:auto; overflow-x:hidden;
+  border:1px solid var(--panel-line);
+  background:
+    linear-gradient(180deg, rgba(217,179,106,.06), transparent 120px),
+    var(--panel);
+  backdrop-filter: blur(14px);
+  border-radius:4px;
+  padding:26px 28px 32px;
+  position:relative;
+}
+.scroll-frame::before, .scroll-frame::after{
+  content:''; position:sticky; display:block; left:0; right:0; height:0;
+}
+.scroll-frame::-webkit-scrollbar{ width:3px; }
+.scroll-frame::-webkit-scrollbar-thumb{ background:rgba(217,179,106,.35); }
+
+/* 未启天机时的占位 */
+.scroll-idle{
+  height:100%; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:26px; text-align:center;
+}
+.scroll-idle .vpoem{
+  writing-mode: vertical-rl; letter-spacing:.5em; line-height:2.6;
+  font-family:var(--calligraphy); font-size:1.05rem;
+  color:rgba(217,179,106,.4); height:46%;
+}
+.qlog{
+  width:100%; max-width:300px; font-size:.72rem; letter-spacing:.2em;
+  color:var(--paper-faint); line-height:2.1; text-align:left; min-height:90px;
+}
+.qlog div{ opacity:0; animation:logIn .8s ease forwards; }
+.qlog div::before{ content:'◈ '; color:var(--jade-deep); }
+@keyframes logIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+/* 结果卡 */
+.rcard{
+  border:1px solid rgba(217,179,106,.18);
+  border-radius:3px; padding:18px 20px; margin-bottom:16px;
+  background: linear-gradient(180deg, rgba(217,179,106,.05), transparent 60px), rgba(7,13,18,.4);
+  opacity:0; transform:translateY(16px);
+}
+.rcard.in{ animation:cardIn .9s cubic-bezier(.2,.7,.2,1) forwards; }
+@keyframes cardIn{ to{ opacity:1; transform:none; } }
+.rcard h3{
+  font-size:.86rem; font-weight:600; letter-spacing:.4em;
+  color:var(--gold-hi); margin-bottom:14px;
+  display:flex; align-items:center; gap:12px;
+}
+.rcard h3::before{
+  content:attr(data-glyph);
+  font-family:var(--calligraphy); font-size:1.05rem; color:var(--jade);
+  width:30px; height:30px; flex:0 0 auto;
+  border:1px solid rgba(111,227,193,.4); border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  text-shadow:0 0 10px rgba(111,227,193,.5); letter-spacing:0;
+}
+.rcard h3::after{
+  content:''; flex:1; height:1px;
+  background:linear-gradient(90deg, rgba(217,179,106,.45), transparent);
+}
+.oracle{
+  font-family:var(--calligraphy); font-size:1.22rem; line-height:2.2;
+  letter-spacing:.24em; color:var(--paper); text-align:center; padding:8px 0 2px;
+  text-shadow:0 0 16px rgba(217,179,106,.18);
+}
+.oracle-note{ margin-top:10px; text-align:center; font-size:.72rem; letter-spacing:.26em; color:var(--paper-faint); }
+.kv{ display:flex; justify-content:space-between; gap:14px; padding:7px 0; border-bottom:1px solid rgba(236,228,207,.06); font-size:.8rem; }
+.kv:last-child{ border-bottom:none; }
+.kv .k{ color:var(--paper-dim); letter-spacing:.2em; white-space:nowrap; }
+.kv .v{ color:var(--paper); text-align:right; line-height:1.7; }
+.kv .v.gold{ color:var(--gold-hi); }
+.kv .v.jade{ color:var(--jade); }
+.pillars{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:6px 0 12px; }
+.pillar{
+  text-align:center; border:1px solid rgba(111,227,193,.18); border-radius:3px;
+  padding:10px 4px; background:rgba(111,227,193,.04);
+}
+.pillar .pl{ font-size:.64rem; letter-spacing:.3em; color:var(--paper-faint); margin-bottom:6px; }
+.pillar .pg{ font-family:var(--calligraphy); font-size:1.3rem; line-height:1.35; color:var(--paper); }
+.pillar .pg b{ display:block; color:var(--gold-hi); font-weight:400; }
+.elbars{ margin:10px 0 4px; display:flex; flex-direction:column; gap:7px; }
+.elbar{ display:flex; align-items:center; gap:10px; font-size:.74rem; }
+.elbar .en{ width:2.2em; letter-spacing:.2em; }
+.elbar .track{ flex:1; height:5px; background:rgba(236,228,207,.07); border-radius:3px; overflow:hidden; }
+.elbar .fill{ height:100%; width:0; border-radius:3px; transition:width 1.4s cubic-bezier(.2,.7,.2,1); }
+.elbar .cnt{ width:1.4em; color:var(--paper-dim); text-align:right; }
+.el-金{ color:#e8d48f; } .f-金{ background:linear-gradient(90deg,#9c854a,#e8d48f); }
+.el-木{ color:#86d68f; } .f-木{ background:linear-gradient(90deg,#3f7a46,#86d68f); }
+.el-水{ color:#7cc4ec; } .f-水{ background:linear-gradient(90deg,#35688c,#7cc4ec); }
+.el-火{ color:#ec8a78; } .f-火{ background:linear-gradient(90deg,#8c4032,#ec8a78); }
+.el-土{ color:#d9b36a; } .f-土{ background:linear-gradient(90deg,#7a5f33,#d9b36a); }
+.prose{ font-size:.78rem; line-height:2.05; letter-spacing:.06em; color:var(--paper-dim); text-align:justify; }
+.prose b{ color:var(--paper); font-weight:600; }
+.prose .lead{ color:var(--gold-hi); }
+.organ-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.organ-chip{
+  border:1px solid rgba(111,227,193,.16); border-radius:3px; padding:10px 11px;
+  background:rgba(111,227,193,.035);
+}
+.organ-chip b{ display:block; font-size:.76rem; color:var(--jade); margin-bottom:4px; letter-spacing:.1em; font-weight:600; }
+.organ-chip span{ font-size:.7rem; line-height:1.8; color:var(--paper-dim); display:block; }
+.luck-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:6px; }
+.luck-item{ border:1px solid rgba(217,179,106,.2); border-radius:3px; padding:10px 12px; background:rgba(217,179,106,.04); }
+.luck-item .lk{ font-size:.66rem; letter-spacing:.3em; color:var(--paper-faint); margin-bottom:5px; }
+.luck-item .lv{ font-size:.86rem; color:var(--gold-hi); letter-spacing:.1em; }
+.disclaimer{
+  margin-top:4px; font-size:.66rem; letter-spacing:.14em; line-height:2;
+  color:var(--paper-faint); text-align:center; opacity:.8;
+}
+.again-row{ display:flex; gap:12px; justify-content:center; margin-top:18px; }
+
+/* ───────── 通用按钮 ───────── */
+.gold-btn{
+  font-family:var(--serif); font-size:.92rem; letter-spacing:.42em; text-indent:.42em;
+  color:#1c1408; background:linear-gradient(180deg, var(--gold-hi), var(--gold));
+  border:none; border-radius:3px; padding:13px 34px; cursor:pointer;
+  box-shadow:0 4px 26px rgba(217,179,106,.35), inset 0 0 0 1px rgba(255,244,214,.5);
+  transition:.3s;
+}
+.gold-btn:hover{ transform:translateY(-2px); box-shadow:0 8px 34px rgba(217,179,106,.5), inset 0 0 0 1px rgba(255,244,214,.7); }
+.gold-btn:active{ transform:translateY(0); }
+.ghost-btn{
+  font-family:var(--serif); font-size:.8rem; letter-spacing:.3em; text-indent:.3em;
+  color:var(--paper-dim); background:transparent;
+  border:1px solid rgba(236,228,207,.25); border-radius:3px;
+  padding:12px 26px; cursor:pointer; transition:.3s;
+}
+.ghost-btn:hover{ color:var(--jade); border-color:rgba(111,227,193,.5); }
+
+/* ───────── 序章 / 生辰覆盖层 ───────── */
+.veil{
+  position:fixed; inset:0; z-index:40;
+  display:flex; align-items:center; justify-content:center;
+  background:
+    radial-gradient(80% 70% at 50% 35%, rgba(20,38,42,.5), transparent 70%),
+    rgba(4,8,11,.82);
+  backdrop-filter: blur(6px);
+  transition: opacity 1s ease, visibility 1s;
+}
+.veil.hide{ opacity:0; visibility:hidden; pointer-events:none; }
+.veil-inner{ text-align:center; max-width:560px; padding:0 28px; }
+.veil .title{
+  font-family:var(--calligraphy); font-weight:400;
+  font-size:clamp(3rem, 7.5vw, 5.4rem); letter-spacing:.18em; line-height:1.2;
+  color:var(--gold-hi);
+  text-shadow:0 0 60px rgba(217,179,106,.45), 0 0 18px rgba(217,179,106,.35);
+  animation:titleIn 2s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes titleIn{ from{ opacity:0; letter-spacing:.55em; filter:blur(8px);} to{ opacity:1; letter-spacing:.18em; filter:none;} }
+.veil .lore{
+  margin:26px auto 8px; font-size:.86rem; line-height:2.5; letter-spacing:.3em;
+  color:var(--paper-dim); animation:fadeUp 1.4s .7s ease both;
+}
+.veil .lore em{ font-style:normal; color:var(--jade); }
+.veil .actions{ margin-top:34px; animation:fadeUp 1.4s 1.2s ease both; }
+@keyframes fadeUp{ from{ opacity:0; transform:translateY(14px);} to{ opacity:1; transform:none;} }
+
+/* 生辰表单 */
+.birth-form{ margin-top:30px; display:none; text-align:left; animation:fadeUp .8s ease both; }
+.birth-form.show{ display:block; }
+.bf-row{ display:flex; gap:12px; margin-bottom:14px; }
+.bf-field{ flex:1; }
+.bf-field label{ display:block; font-size:.68rem; letter-spacing:.34em; color:var(--paper-faint); margin-bottom:7px; }
+.bf-field input, .bf-field select{
+  width:100%; font-family:var(--serif); font-size:.92rem; letter-spacing:.1em;
+  color:var(--paper); background:rgba(7,13,18,.7);
+  border:1px solid rgba(217,179,106,.3); border-radius:3px;
+  padding:11px 12px; outline:none; transition:.3s;
+  color-scheme: dark;
+}
+.bf-field input:focus, .bf-field select:focus{ border-color:var(--gold); box-shadow:0 0 0 3px rgba(217,179,106,.12); }
+.gender-seg{ display:flex; gap:8px; }
+.gender-seg button{
+  flex:1; font-family:var(--serif); font-size:.85rem; letter-spacing:.3em; text-indent:.3em;
+  color:var(--paper-dim); background:rgba(7,13,18,.7);
+  border:1px solid rgba(217,179,106,.3); border-radius:3px; padding:11px 0; cursor:pointer; transition:.3s;
+}
+.gender-seg button.sel{ color:var(--gold-hi); border-color:var(--gold); background:rgba(217,179,106,.1); }
+.bf-note{ font-size:.64rem; letter-spacing:.2em; color:var(--paper-faint); line-height:2; margin-top:4px; }
+.bf-actions{ margin-top:22px; display:flex; gap:12px; justify-content:center; }
+.err-text{ margin-top:12px; font-size:.74rem; letter-spacing:.2em; color:#f0a08f; text-align:center; min-height:1.4em; }
+
+/* ───────── 响应式 ───────── */
+@media (max-width: 980px){
+  body{ overflow:auto; }
+  .stage{ position:relative; flex-direction:column; height:auto; min-height:100vh; }
+  .altar{ flex:0 0 auto; padding:90px 0 70px; }
+  .altar-inner{ width:min(92vw, 64vh); }
+  .scroll-panel{ margin:0 14px 24px; min-height:340px; }
+  .demo-link{ bottom:-13%; }
+}
+@media (prefers-reduced-motion: reduce){
+  .cloud, .veil .title{ animation:none; }
+  *{ transition-duration:.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ① 最底层：国风背景（程序化星空 + 云海；可被视频层覆盖） -->
+<canvas id="bgCanvas"></canvas>
+<div class="bg-wash"></div>
+<div class="cloud c1"></div>
+<div class="cloud c2"></div>
+<video id="stageVideo" muted playsinline loop preload="none"></video>
+
+<!-- 顶栏 -->
+<div class="topbar">
+  <div class="brand">
+    <div class="seal">機</div>
+    <div>
+      <h1>天机掌纹</h1>
+      <small>掌中有山河 · 纹里见天机</small>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button class="chip-btn" id="btnSound" title="开启/关闭音效">声 · 闭</button>
+    <button class="chip-btn" id="btnRestart" style="display:none">再启天机</button>
+  </div>
+</div>
+
+<!-- 主舞台 -->
+<div class="stage">
+  <!-- ②③ 中层天机盘 + 上层粒子掌纹 Canvas -->
+  <div class="altar">
+    <div class="altar-inner" id="altarInner">
+      <canvas id="stoneCanvas"></canvas>
+      <canvas id="handCanvas"></canvas>
+
+      <div class="altar-prompt" id="altarPrompt">
+        <div class="main" id="promptMain">天机盘沉眠中</div>
+        <div class="sub" id="promptSub">叩问天机，以掌为引</div>
+        <div class="rules" id="promptRules" style="display:none">
+          <span>掌心置于天机盘</span><span>张开五指</span><span>掌心朝向镜头</span>
+        </div>
+      </div>
+
+      <div class="phases" id="phaseTrack">
+        <div class="phase" data-i="0"><div class="dot"></div><div class="name">观掌形</div></div>
+        <div class="phase" data-i="1"><div class="dot"></div><div class="name">取三线</div></div>
+        <div class="phase" data-i="2"><div class="dot"></div><div class="name">定五行</div></div>
+        <div class="phase" data-i="3"><div class="dot"></div><div class="name">启天机</div></div>
+      </div>
+
+      <button class="demo-link" id="btnDemo">无摄像头？以心代掌（演示模式）</button>
+    </div>
+  </div>
+
+  <!-- ④ 最上层右侧：天机结果 -->
+  <div class="scroll-panel">
+    <div class="scroll-frame" id="scrollFrame">
+      <div class="scroll-idle" id="scrollIdle">
+        <div class="vpoem">天垂象见吉凶 · 圣人则之<br>掌有纹通五行 · 智者察之</div>
+        <div class="qlog" id="qlog"></div>
+      </div>
+      <div id="resultArea"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 序章覆盖层 -->
+<div class="veil" id="introVeil">
+  <div class="veil-inner">
+    <div class="title">天机掌纹</div>
+    <div class="lore">
+      昔者袁天罡、李淳风夜观星象，推演《推背图》，<br>
+      留一方<em>天机盘</em>于观星台之巅。<br>
+      凡以诚心置掌于盘者，可窥命格之一隅。
+    </div>
+
+    <div class="actions" id="introActions">
+      <button class="gold-btn" id="btnBegin">叩 问 天 机</button>
+    </div>
+
+    <div class="birth-form" id="birthForm">
+      <div class="bf-row">
+        <div class="bf-field">
+          <label>出生之日（阳历）</label>
+          <input type="date" id="birthDate" min="1920-01-01" max="2026-06-13" value="1995-08-15">
+        </div>
+        <div class="bf-field">
+          <label>出生时辰</label>
+          <select id="birthHour">
+            <option value="-1">时辰未知</option>
+            <option value="0">子时 23–01</option><option value="1">丑时 01–03</option>
+            <option value="2">寅时 03–05</option><option value="3">卯时 05–07</option>
+            <option value="4">辰时 07–09</option><option value="5">巳时 09–11</option>
+            <option value="6">午时 11–13</option><option value="7">未时 13–15</option>
+            <option value="8">申时 15–17</option><option value="9">酉时 17–19</option>
+            <option value="10">戌时 19–21</option><option value="11">亥时 21–23</option>
+          </select>
+        </div>
+      </div>
+      <div class="bf-row">
+        <div class="bf-field">
+          <label>造化</label>
+          <div class="gender-seg" id="genderSeg">
+            <button data-g="乾" class="sel">乾 造（男）</button>
+            <button data-g="坤">坤 造（女）</button>
+          </div>
+        </div>
+      </div>
+      <div class="bf-note">生辰用于排布四柱、统计五行，与掌相互参，以求测断更准。节气按通行近似值推算。</div>
+      <div class="bf-actions">
+        <button class="ghost-btn" id="btnSkipBirth">不录生辰</button>
+        <button class="gold-btn" id="btnConfirmBirth">定 盘 启 灵</button>
+      </div>
+      <div class="err-text" id="introErr"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 隐藏的摄像头视频：只用于识别，绝不作为视觉主体 -->
+<video id="camVideo" playsinline autoplay muted style="position:fixed; width:2px; height:2px; opacity:0; pointer-events:none; left:-10px; top:-10px;"></video>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+<script>
+'use strict';
+/* ════════════════════════════════════════════════════════════
+   天机掌纹 · 国风玄学掌相占卜游戏
+   分层：背景星空(canvas) → 天机盘(canvas) → 掌纹线描(canvas) → UI
+   摄像头隐藏，仅供 MediaPipe 识别；视觉主体 = 天机盘 + 粒子掌纹
+   ════════════════════════════════════════════════════════════ */
+
+/* ── 可选视频资源：将按 docx 提示词生成的五段视频放入此处即可自动启用 ── */
+const VIDEO_SOURCES = {
+  intro:   'video/01_intro.mp4',     // 世界观开场（5s，不循环）
+  idle:    'video/02_idle.mp4',      // 等待放置手掌（循环）
+  sensed:  'video/03_sensed.mp4',    // 感应成功（2–3s）
+  loading: 'video/04_loading.mp4',   // 分析加载（循环）
+  reveal:  'video/05_reveal.mp4',    // 结果揭示（结尾循环）
+};
+
+/* ── DOM ── */
+const $ = id => document.getElementById(id);
+const bgCanvas = $('bgCanvas'), stoneCanvas = $('stoneCanvas'), handCanvas = $('handCanvas');
+const bgCtx = bgCanvas.getContext('2d'), sCtx = stoneCanvas.getContext('2d'), hCtx = handCanvas.getContext('2d');
+const promptMain = $('promptMain'), promptSub = $('promptSub'), promptRules = $('promptRules');
+const phaseTrack = $('phaseTrack'), qlog = $('qlog');
+const scrollIdle = $('scrollIdle'), resultArea = $('resultArea'), scrollFrame = $('scrollFrame');
+const introVeil = $('introVeil'), introActions = $('introActions'), birthForm = $('birthForm');
+const camVideo = $('camVideo'), stageVideo = $('stageVideo');
+const btnDemo = $('btnDemo'), btnRestart = $('btnRestart'), btnSound = $('btnSound');
+
+/* ── 工具 ── */
+const lerp = (a,b,t)=>a+(b-a)*t;
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const dist = (a,b)=>Math.hypot(a.x-b.x, a.y-b.y);
+const TAU = Math.PI*2;
+
+/* ════════════════ 音效（程序化国风音色，默认关闭） ════════════════ */
+let audioOn = false, audioCtx = null;
+function chime(freq=523.25, dur=1.4, vol=0.12){
+  if(!audioOn) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const t = audioCtx.currentTime;
+    const o = audioCtx.createOscillator(), o2 = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    o2.type='sine'; o2.frequency.value=freq*2.01;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.connect(g); o2.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o2.start(t); o.stop(t+dur); o2.stop(t+dur);
+  }catch(e){}
+}
+function gong(){ chime(98, 3.2, 0.16); chime(196.5, 2.4, 0.07); }
+btnSound.onclick = ()=>{
+  audioOn = !audioOn;
+  btnSound.textContent = audioOn ? '声 · 开' : '声 · 闭';
+  btnSound.classList.toggle('on', audioOn);
+  if(audioOn) chime(659.25, .9, .08);
+};
+
+/* ════════════════ 八字四柱推演 ════════════════
+   节气按通行平均日近似；日柱以 1949-10-01（甲子日）为锚 */
+const GAN = '甲乙丙丁戊己庚辛壬癸';
+const ZHI = '子丑寅卯辰巳午未申酉戌亥';
+const GAN_EL = ['木','木','火','火','土','土','金','金','水','水'];
+const ZHI_EL = ['水','土','木','木','土','火','火','土','金','金','土','水'];
+const ZHI_ANIMAL = '鼠牛虎兔龙蛇马羊猴鸡狗猪';
+const ELEMENTS = ['金','木','水','火','土'];
+const EL_KEY = {'金':'metal','木':'wood','水':'water','火':'fire','土':'earth'};
+const EL_GEN = {'金':'水','水':'木','木':'火','火':'土','土':'金'};  // 我生
+const EL_KE  = {'金':'木','木':'土','土':'水','水':'火','火':'金'};  // 我克
+// 各月支起始近似日（公历）：寅月始于立春…
+const TERM_START = {2:4, 3:6, 4:5, 5:6, 6:6, 7:7, 8:8, 9:8, 10:8, 11:7, 12:7, 1:6};
+
+function computeBazi(y, m, d, hourIdx){
+  // 年柱（立春前归上一年）
+  let sy = y;
+  if(m < 2 || (m === 2 && d < TERM_START[2])) sy = y - 1;
+  const yG = ((sy - 4) % 10 + 10) % 10, yZ = ((sy - 4) % 12 + 12) % 12;
+  // 月柱（寅=0）
+  let mi = m - 2;                                 // 2月→寅
+  if(d < TERM_START[m]) mi -= 1;
+  mi = ((mi % 12) + 12) % 12;
+  const mG = (((yG % 5) * 2 + 2) + mi) % 10;      // 五虎遁
+  const mZ = (2 + mi) % 12;
+  // 日柱：1949-10-01 = 甲子
+  const days = Math.round((Date.UTC(y, m-1, d) - Date.UTC(1949, 9, 1)) / 86400000);
+  const di = ((days % 60) + 60) % 60;
+  const dG = di % 10, dZ = di % 12;
+  // 时柱（五鼠遁）
+  let pillars = [
+    {label:'年柱', g:yG, z:yZ},
+    {label:'月柱', g:mG, z:mZ},
+    {label:'日柱', g:dG, z:dZ},
+  ];
+  if(hourIdx >= 0){
+    const hG = ((dG % 5) * 2 + hourIdx) % 10;
+    pillars.push({label:'时柱', g:hG, z:hourIdx});
+  }
+  // 五行统计
+  const count = {'金':0,'木':0,'水':0,'火':0,'土':0};
+  pillars.forEach(p => { count[GAN_EL[p.g]]++; count[ZHI_EL[p.z]]++; });
+  const sorted = ELEMENTS.slice().sort((a,b)=>count[b]-count[a]);
+  const dominant = sorted[0], weakest = sorted[sorted.length-1];
+  return {
+    pillars, count, dominant, weakest,
+    dayMaster: GAN_EL[dG], dayGan: GAN[dG],
+    zodiac: ZHI_ANIMAL[yZ],
+    favor: weakest,           // 简化：以偏弱之行为宜补之喜用
+  };
+}
+
+/* ════════════════ 掌相五行知识库 ════════════════ */
+function classifyHandElement(lm){
+  const palmW = Math.abs(lm[17].x - lm[5].x);
+  const palmH = Math.abs(lm[0].y - lm[9].y);
+  const midLen = dist(lm[9], lm[12]);
+  const pr = palmH / (palmW || .01), fr = midLen / (palmH || .01);
+  const thumbLen = dist(lm[2], lm[4]);
+  const indexLen = dist(lm[5], lm[8]), ringLen = dist(lm[13], lm[16]);
+  let el, cn, desc, traits;
+  if(pr < 0.88 && fr < 0.82){ el='土'; cn='土形手'; desc='掌方而厚，指短而粗，骨肉坚实，掌色黄润'; traits='性厚重，有耐力，处事稳重，守信重诺'; }
+  else if(pr > 1.28 && fr > 1.02){ el='木'; cn='木形手'; desc='掌长而瘦，指节分明，纹理清秀，指端略尖'; traits='性仁厚，有进取心，善谋略，志在高远'; }
+  else if(pr > 1.12 && fr < 0.88){ el='火'; cn='火形手'; desc='掌长而尖，指较短促，掌色微红，指尖尖锐'; traits='性刚烈，行动敏捷，敢作敢为，热情奔放'; }
+  else if(pr > 0.85 && pr < 1.18 && fr > 0.82 && fr < 1.05){ el='金'; cn='金形手'; desc='掌方而端，指直而匀，骨节清晰，皮肉紧密'; traits='性刚直，处事果断，重原则，守规矩'; }
+  else { el='水'; cn='水形手'; desc='掌圆而柔，肉丰骨细，肤润有泽，指尖圆润'; traits='性聪慧，善交际，适应力强，柔中带刚'; }
+  const sizeScore = Math.min(30, palmW*palmH*350);
+  const balanceScore = (1 - Math.abs(pr-1)) * 25;
+  const fingerScore = Math.min(25, fr*22);
+  const thumbScore = Math.min(20, thumbLen*120);
+  const vitality = clamp(Math.round(sizeScore+balanceScore+fingerScore+thumbScore), 18, 98);
+  return { el, cn, desc, traits, vitality,
+    metrics:{ palmRatio:pr, fingerRatio:fr, indexToRing: indexLen/(ringLen||.01) } };
+}
+
+const ORACLES = {  /* 天机主谶 · 按掌型五行 */
+  '金':['金声玉振出尘埃，方寸之间气自开。','莫道锋芒伤皓月，沉刀百炼始成材。'],
+  '木':['春木破岩向日生，根深何惧晚来风。','直上青云非侥幸，年轮一寸一寸功。'],
+  '水':['流水不与高山争，转过千滩自在行。','遇圆则圆方则方，柔波深处有龙吟。'],
+  '火':['心头一点离明火，照彻长夜万里途。','燃尽浮云留赤胆，且将余烬养新炉。'],
+  '土':['厚土无言载万物，深耕静守岁华长。','莫羡飞鸿天际远，高台原自垒泥香。'],
+};
+const ORACLE_NOTE = {
+  '金':'谶曰：利在沉潜，忌在锋锐。守正而行，秋后自有金实。',
+  '木':'谶曰：利在生发，忌在折节。向阳深耕，春深自有花期。',
+  '水':'谶曰：利在顺势，忌在散漫。聚流成川，转处自见生机。',
+  '火':'谶曰：利在果决，忌在燥进。明而有节，灯下自照前程。',
+  '土':'谶曰：利在守成，忌在迟疑。积厚而发，静中自纳百福。',
+};
+
+const PALMISTRY = {
+  '金':{
+    事业:['金主义，掌呈方形者多具管理之才，宜从事金融、律法、行政之职。思路清晰，处事果断，不拖泥带水。中年三十五岁前后有事业之机，宜把握。',
+         '金形手配以清晰智慧线，主逻辑缜密，善分析判断。职场之中以稳健著称，不冒进不投机，积小胜为大成。宜在体制内或大型机构中发展。',
+         '掌中方正之格局，配以深长智慧线，主有统筹全局之能。事业运势稳中有升，不宜急功近利。四十岁后渐入高峰，晚景可观。'],
+    情感:['金形之人，情义深厚而表达内敛。感情线清晰平直者，主婚姻稳定，配偶贤良。然金性刚直，需注意沟通方式，勿因耿直而伤及亲近之人。',
+         '感情线弧度适中，配以金形之掌，主用情专一，不轻易动心，一旦认定则始终如一。宜晚婚，三十之后姻缘更佳。',
+         '金形手感情线明晰，主家庭观念重，对配偶忠诚。然性情刚正，不善婉转，夫妻相处需多一份柔情与耐心，方能长久和睦。'],
+  },
+  '木':{
+    事业:['木主仁，掌长指秀者多具创造力，宜从事教育、设计、艺术、研究之职。事业不拘一格，以新意为贵，不宜固守陈规。三十岁前后有重要转折，顺势而为。',
+         '木形手配以绵长智慧线，主思路开阔，善于规划长远。职业宜选择有成长空间之领域，如同树木生长，日积月累，终成栋梁。',
+         '木形之手，指节分明而有力，主有坚韧不拔之志。事业如春木勃发，需经风雨方能成材。不宜频繁跳槽，深耕一域终有所成。'],
+    情感:['木形之人，仁爱宽厚，情感丰富而细腻。感情线绵长者，主用情深重，善解人意。然木形多情，需注意情感界限，避免为情所困。',
+         '木形手感情线秀美，主审美高雅，择偶重精神契合。感情生活如春风化雨，平淡中见真情，宜寻觅志趣相投之伴侣。',
+         '木形手掌纹清晰，感情线走势向上者，主情感运势良好。对待感情真诚而包容，家庭生活和睦。唯需注意不可过于理想化，务实方能长久。'],
+  },
+  '水':{
+    事业:['水主智，掌圆柔者多具变通之才，宜从事贸易、外交、咨询、服务之职。善于沟通协调，能以柔克刚。事业如水流，顺势而行，不逆势而动。',
+         '水形手配以曲长智慧线，主思维灵活，善于把握机会。职业宜与人打交道，人脉即财脉。三十五岁前后运势大开，宜向外拓展。',
+         '水形之手柔软而有力，主外柔内刚，处事圆融。事业适合流动性强之行业，不宜固守一方。以变应变，方能立于不败之地。'],
+    情感:['水形之人，柔情似水，情感细腻而善感。感情线曲长而深者，主情感世界丰富，善解人意。然水性无常，需注意情感之专一与持久。',
+         '水形手感情线圆润流畅，主桃花运旺，异性缘佳。对待感情温柔体贴，善于营造浪漫氛围。宜寻性格互补之伴侣，以平衡水性之多变。',
+         '水形掌柔软，感情线走势柔和者，主家庭生活温馨和睦。情感如水，润物无声，与伴侣相濡以沫。需注意理财，以防感情受物质所累。'],
+  },
+  '火':{
+    事业:['火主礼，掌尖长者多具开创精神，宜从事创业、演艺、竞技、军警之职。执行力强，敢为人先。事业如烈火，需有节制，过旺则易焚身。',
+         '火形手配以深长智慧线，主有远见卓识，善于把握时机。事业宜快不宜慢，抢占先机为要。三十二岁前后有关键之机，成败在此一举。',
+         '火形之手，指短而有力，主行动迅速，不喜拖延。事业适合需要魄力与胆识之领域，以激情驱动，以毅力坚持，终有大成。'],
+    情感:['火形之人，热情奔放，爱憎分明。感情线深而有力者，主用情热烈，敢爱敢恨。然火性急躁，需学会克制与包容，感情方能长久。',
+         '火形手感情线鲜明，主情感投入深切，不计得失。恋爱中主动积极，婚姻中充满活力。宜寻性情温和之伴侣，以水济火，刚柔并济。',
+         '火形掌感情线走势明朗，主坦诚直率，不藏心事。情感生活中激情与争执并存，需以智慧化解矛盾，以真诚维系感情。'],
+  },
+  '土':{
+    事业:['土主信，掌厚实者多具务实之才，宜从事工程、农业、制造、地产之职。做事踏实可靠，深得信赖。事业如垒土，日积月累，终成高台。',
+         '土形手配以稳重智慧线，主思路务实，不善投机而善守成。职业以稳定为上，不宜频繁变动。四十岁后运势稳步上升，晚景丰足。',
+         '土形之手，掌厚有力，主吃苦耐劳，兢兢业业。事业适合需要耐心与毅力之领域，以勤补拙，以诚待人，虽慢必达。'],
+    情感:['土形之人，忠诚厚道，情感笃实而稳定。感情线深厚者，主家庭观念极重，对伴侣忠贞不二。虽不善浪漫，而能以行动表达深情。',
+         '土形手感情线稳重平实，主婚姻牢固，家庭和睦。对待感情认真负责，是可靠之伴侣。宜寻性情相投之人，共建安稳之家。',
+         '土形掌感情线清晰深厚，主情感专一持久，不轻易动摇。家庭为人生之重心，以朴实无华之方式守护所爱，幸福在平淡中见真章。'],
+  },
+};
+
+/* 中医全息手诊 */
+const ELEMENT_HEALTH = {
+  '金':{ 体质:'金形之人肺气较旺，皮肤、呼吸系统为健康重点，宜养肺润燥。', 易感:'易感冒、皮肤干燥、便秘，情绪上易忧思过度。', 调养:'多食白色食物（银耳、百合、梨），练习深呼吸吐纳，保持心情开朗。', organs:'肺 · 大肠 · 皮肤' },
+  '木':{ 体质:'木形之人肝气偏盛，情绪波动对健康影响较大，宜疏肝理气。', 易感:'易偏头痛、目涩疲劳、筋骨酸痛，情绪易怒或郁结。', 调养:'多食绿色蔬菜，保持规律运动，避免熬夜，戒怒养肝。', organs:'肝 · 胆 · 筋骨' },
+  '水':{ 体质:'水形之人肾气为本，先天禀赋与泌尿系统需多关注，宜固肾培元。', 易感:'易腰膝酸软、耳鸣、水肿、畏寒怕冷。', 调养:'多食黑色食物（黑豆、黑芝麻、海带），注意保暖，规律作息。', organs:'肾 · 膀胱 · 骨骼' },
+  '火':{ 体质:'火形之人心气旺盛，循环系统与情志波动为健康重点，宜清心降火。', 易感:'易心悸失眠、口舌生疮、血压波动、情绪急躁。', 调养:'多食苦味食物（苦瓜、莲子心），避免过劳，保持心境平和。', organs:'心 · 小肠 · 血脉' },
+  '土':{ 体质:'土形之人脾胃为本，消化与营养吸收为健康关键，宜健脾和胃。', 易感:'易消化不良、水肿虚胖、肌肉酸困、思虑伤脾。', 调养:'多食黄色食物（小米、南瓜、山药），三餐规律，饭后百步走。', organs:'脾 · 胃 · 肌肉' },
+};
+const FINGER_ORGAN = [
+  { name:'拇指', organ:'肺 / 脾', care:'少冷饮，练鼻吸口呼，轻揉大鱼际。' },
+  { name:'食指', organ:'肠 / 胃', care:'规律进食，忌暴饮暴食，餐后慢走。' },
+  { name:'中指', organ:'心脑血管', care:'保证睡眠，减少久坐，平稳情绪。' },
+  { name:'无名指', organ:'肝胆 / 内分泌', care:'少熬夜酒腻，常做拉伸舒展。' },
+  { name:'小指', organ:'肾 / 泌尿', care:'注意保暖饮水，避免长期憋尿。' },
+];
+const LUCK = {  /* 改运指引 · 按喜用之行 */
+  '金':{ color:'白 · 杏 · 金', dir:'西方', num:'四 · 九', act:'常整理收纳，佩戴金属细饰，呼吸吐纳以养肺金。' },
+  '木':{ color:'青 · 碧 · 绿', dir:'东方', num:'三 · 八', act:'居处添绿植，晨起东行散步，读书习字以养木气。' },
+  '水':{ color:'黑 · 蓝 · 灰', dir:'北方', num:'一 · 六', act:'近水而居心自润，常饮温水，夜卧早些以养肾水。', },
+  '火':{ color:'赤 · 朱 · 紫', dir:'南方', num:'二 · 七', act:'多晒晨光，常燃一盏暖灯，待人热忱以聚火德。' },
+  '土':{ color:'黄 · 棕 · 褐', dir:'中宫与西南', num:'五 · 十', act:'三餐守时，习练站桩，言出必行以厚土德。' },
+};
+
+/* 掌与命互参 */
+function crossReading(handEl, bazi){
+  if(!bazi) return `掌为${handEl}形。未录生辰，单以掌相论之：掌中五行已定其性，行止之间自见其命。`;
+  const dom = bazi.dominant;
+  if(handEl === dom) return `掌为<b>${handEl}形</b>，命中亦以<b>${dom}</b>为旺——表里如一，禀性纯粹。所长者愈长，唯须防${handEl}气过亢而失中和，记取「物极必反」四字。`;
+  if(EL_GEN[handEl] === dom) return `掌为<b>${handEl}形</b>，命中<b>${dom}</b>旺。${handEl}能生${dom}，掌相滋养命格——付出终有回响，所谋之事多得贵人接力，宜舍小利而成大局。`;
+  if(EL_GEN[dom] === handEl) return `命中<b>${dom}</b>旺而生掌中之<b>${handEl}</b>——先天底气厚于外显之相。看似平平之处，实有源头活水，中年之后渐见后劲。`;
+  if(EL_KE[handEl] === dom) return `掌为<b>${handEl}形</b>，命中<b>${dom}</b>旺，${handEl}克${dom}——主观能动可制先天之偏，凡事亲力亲为则吉，假手于人则滞。`;
+  return `命中<b>${dom}</b>旺而克掌中之<b>${handEl}</b>——外境多磨砺，恰是炼性之炉。宜借喜用之<b>${bazi.favor}</b>通关化解，缓行则达。`;
+}
+
+/* ════════════════ 状态机 ════════════════ */
+const S = { INTRO:'intro', SUMMON:'summon', AWAIT:'await', ALIGNED:'aligned', SENSED:'sensed', ANALYZING:'analyzing', REVEAL:'reveal' };
+let state = S.INTRO;
+let stateT0 = performance.now();
+
+let userBazi = null, userGender = '乾';
+let handsModel = null, modelReady = false, cameraOn = false, camFailed = false;
+let demoMode = false;
+let latestLM = null;          // 最新 21 点（已镜像归一化）
+let capturedLM = null;        // 分析时定格的手
+let align = { ok:false, hint:'', dx:0, dy:0, size:0, since:0 };
+let holdProgress = 0;         // 对齐保持进度 0..1
+let analysisPhase = -1, phaseT0 = 0;
+const PHASE_DUR = [2000, 2600, 2600, 2200];
+let reading = null;
+let glowEnergy = 0;           // 石之能量 0..1
+let flashT = 0;               // 偏离闪烁
+let revealBloom = 0;
+
+function setPrompt(main, sub, tone){
+  promptMain.textContent = main;
+  promptMain.className = 'main' + (tone ? ' '+tone : '');
+  promptSub.textContent = sub || '';
+}
+function addLog(text){
+  const d = document.createElement('div');
+  d.textContent = text;
+  qlog.appendChild(d);
+  while(qlog.children.length > 5) qlog.removeChild(qlog.firstChild);
+}
+function setVideo(key, loop=true){
+  const src = VIDEO_SOURCES[key];
+  if(!src){ stageVideo.classList.remove('on'); return; }
+  stageVideo.onerror = ()=> stageVideo.classList.remove('on');
+  stageVideo.loop = loop;
+  stageVideo.src = src;
+  stageVideo.play().then(()=> stageVideo.classList.add('on'))
+                   .catch(()=> stageVideo.classList.remove('on'));
+}
+
+function setState(s){
+  state = s; stateT0 = performance.now();
+  switch(s){
+    case S.AWAIT:
+      promptRules.style.display = 'flex';
+      phaseTrack.classList.remove('show');
+      setPrompt('请将掌心置于天机盘', '盘心掌印微光呼吸，待君以掌相叩');
+      setVideo('idle', true);
+      btnDemo.style.display = demoMode ? 'none' : 'block';
+      break;
+    case S.SENSED:
+      promptRules.style.display = 'none';
+      btnDemo.style.display = 'none';
+      setPrompt('天机已感应', '保持不动 · 灵识入盘', 'jade');
+      chime(783.99, 1.6, .1);
+      setVideo('sensed', false);
+      capturedLM = latestLM ? latestLM.map(p=>({...p})) : capturedLM;
+      setTimeout(()=>{ if(state===S.SENSED) startAnalysis(); }, 1700);
+      break;
+    case S.ANALYZING:
+      setPrompt('', '');
+      promptRules.style.display = 'none';
+      phaseTrack.classList.add('show');
+      setVideo('loading', true);
+      break;
+    case S.REVEAL:
+      phaseTrack.classList.remove('show');
+      setPrompt('天机已现', '卷轴展于右侧 · 善察而行', 'jade');
+      btnRestart.style.display = 'inline-block';
+      setVideo('reveal', true);
+      gong();
+      break;
+  }
+}
+
+/* ════════════════ 序章交互 ════════════════ */
+$('btnBegin').onclick = ()=>{
+  $('btnBegin').style.display = 'none';
+  birthForm.classList.add('show');
+  chime(523.25, 1, .08);
+};
+$('genderSeg').querySelectorAll('button').forEach(b=>{
+  b.onclick = ()=>{
+    $('genderSeg').querySelectorAll('button').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel'); userGender = b.dataset.g;
+  };
+});
+$('btnConfirmBirth').onclick = ()=>{
+  const v = $('birthDate').value;
+  if(!v){ $('introErr').textContent = '请先择定出生之日'; return; }
+  const [y,m,d] = v.split('-').map(Number);
+  userBazi = computeBazi(y, m, d, parseInt($('birthHour').value, 10));
+  enterAltar();
+};
+$('btnSkipBirth').onclick = ()=>{ userBazi = null; enterAltar(); };
+
+function enterAltar(){
+  $('introErr').textContent = '';
+  introVeil.classList.add('hide');
+  setVideo('intro', false);
+  chime(659.25, 1.4, .1);
+  addLog(userBazi ? `生辰已定盘 · ${userBazi.zodiac}年 ${userGender}造` : '未录生辰 · 单观掌相');
+  setState(S.SUMMON);
+  setPrompt('唤醒天机盘', '正在请引灵识（摄像头权限）……');
+  startCamera();
+}
+
+btnRestart.onclick = ()=>{
+  reading = null; capturedLM = null; analysisPhase = -1; revealBloom = 0; holdProgress = 0;
+  resultArea.innerHTML = ''; scrollIdle.style.display = 'flex';
+  btnRestart.style.display = 'none';
+  addLog('再启天机 · 静候掌印');
+  setState(S.AWAIT);
+};
+
+/* ════════════════ 摄像头 + MediaPipe（隐藏，仅识别） ════════════════ */
+async function startCamera(){
+  try{
+    if(typeof Hands === 'undefined') throw new Error('识别模块未能加载（请检查网络）');
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ width:{ideal:960}, height:{ideal:720}, facingMode:'user' }
+    });
+    camVideo.srcObject = stream;
+    await new Promise((res, rej)=>{
+      camVideo.onloadedmetadata = res;
+      camVideo.onerror = ()=>rej(new Error('视频流异常'));
+      camVideo.play().catch(rej);
+    });
+    handsModel = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}` });
+    handsModel.setOptions({ maxNumHands:1, modelComplexity:1, minDetectionConfidence:0.7, minTrackingConfidence:0.6 });
+    handsModel.onResults(r=>{
+      modelReady = true;
+      if(r.multiHandLandmarks && r.multiHandLandmarks.length){
+        latestLM = r.multiHandLandmarks[0].map(p=>({ x:1-p.x, y:p.y }));   // 镜像
+      } else latestLM = null;
+      if(state === S.SUMMON){ addLog('天机盘已苏醒 · 符文渐明'); setState(S.AWAIT); }
+    });
+    cameraOn = true;
+    (async function loop(){
+      if(!cameraOn || demoMode) return;
+      try{ await handsModel.send({ image: camVideo }); }catch(e){}
+      requestAnimationFrame(loop);
+    })();
+    setTimeout(()=>{ if(state===S.SUMMON && !modelReady){ addLog('灵识响应迟缓 · 仍在沟通'); } }, 8000);
+    setTimeout(()=>{ if(state===S.SUMMON){ setState(S.AWAIT); } }, 14000);
+  }catch(err){
+    camFailed = true;
+    setPrompt('引灵受阻', err.name==='NotAllowedError' ? '摄像头权限被拒，可允许后再启，或转演示模式' : ('初始化失败：'+err.message), 'warn');
+    addLog('摄像头未通 · 可以心代掌');
+    btnDemo.style.display = 'block';
+    state = S.AWAIT; stateT0 = performance.now();
+    promptRules.style.display = 'none';
+  }
+}
+
+/* 演示模式：合成手掌（无摄像头也可完整体验仪式） */
+const DEMO_BASE = [
+  [0.50,0.84],                                       // 0 腕
+  [0.41,0.78],[0.34,0.72],[0.29,0.67],[0.25,0.63],   // 1-4 拇指（外展）
+  [0.40,0.57],[0.385,0.47],[0.378,0.41],[0.37,0.36], // 5-8 食指
+  [0.50,0.55],[0.50,0.44],[0.50,0.37],[0.50,0.31],   // 9-12 中指
+  [0.60,0.57],[0.615,0.47],[0.623,0.41],[0.63,0.36], // 13-16 无名指
+  [0.69,0.60],[0.715,0.52],[0.728,0.47],[0.74,0.43], // 17-20 小指（偏短）
+];
+btnDemo.onclick = ()=>{
+  demoMode = true; camFailed = false; btnDemo.style.display = 'none';
+  addLog('演示模式 · 以心代掌');
+  if(state === S.SUMMON || state === S.AWAIT) setState(S.AWAIT);
+};
+function demoTick(t){
+  const j = (i,k)=> Math.sin(t*0.0011 + i*1.7 + k)*0.004;
+  latestLM = DEMO_BASE.map((p,i)=>({ x:p[0]+j(i,0), y:p[1]+j(i,5) }));
+}
+
+/* ════════════════ 对齐判定（三态反馈核心） ════════════════ */
+const fingerTips=[4,8,12,16,20], fingerPIPs=[3,6,10,14,18];
+function isExtended(lm, tip, pip, thumb){
+  if(thumb) return dist(lm[tip], lm[5]) > 0.12;
+  return lm[tip].y < lm[pip].y;
+}
+function evalAlignment(lm){
+  const c = { x:(lm[0].x+lm[5].x+lm[9].x+lm[13].x+lm[17].x)/5,
+              y:(lm[0].y+lm[5].y+lm[9].y+lm[13].y+lm[17].y)/5 };
+  const pw = Math.abs(lm[17].x - lm[5].x);
+  const dx = c.x - 0.5, dy = c.y - 0.52;
+  let ext = 0; for(let i=0;i<5;i++) if(isExtended(lm, fingerTips[i], fingerPIPs[i], i===0)) ext++;
+  let ok = true, hint = '';
+  if(pw < 0.13){ ok=false; hint='掌距石面过远，请靠近些'; }
+  else if(pw > 0.46){ ok=false; hint='掌距石面过近，请稍退后'; }
+  else if(Math.abs(dx) > 0.13 || Math.abs(dy) > 0.15){
+    ok=false;
+    hint = '掌心偏离石心 · 请向' + (Math.abs(dx)>Math.abs(dy) ? (dx>0?'左':'右') : (dy>0?'上':'下')) + '移';
+  }
+  else if(ext < 4){ ok=false; hint='请张开五指，掌心朝向镜头'; }
+  return { ok, hint, dx, dy, size:pw };
+}
+
+/* ════════════════ 分析序列 ════════════════ */
+function startAnalysis(){
+  // 生成解读（提前算好，加载过程为仪式呈现）
+  const lm = capturedLM || latestLM || DEMO_BASE.map(p=>({x:p[0],y:p[1]}));
+  const hand = classifyHandElement(lm);
+  const seed = hand.vitality*7 + Math.floor(hand.metrics.palmRatio*100) + (userBazi ? userBazi.pillars[2].g : 0);
+  const pick = (arr, off)=> arr[(seed+off) % arr.length];
+  const favor = userBazi ? userBazi.favor : hand.el;
+  reading = {
+    hand,
+    oracle: ORACLES[hand.el],
+    oracleNote: ORACLE_NOTE[hand.el],
+    career: pick(PALMISTRY[hand.el].事业, 1),
+    love:   pick(PALMISTRY[hand.el].情感, 3),
+    health: ELEMENT_HEALTH[hand.el],
+    luck:   LUCK[favor],
+    favor,
+    cross:  crossReading(hand.el, userBazi),
+  };
+  analysisPhase = 0; phaseT0 = performance.now();
+  setState(S.ANALYZING);
+  updatePhaseUI();
+  addLog('观掌形 · 描手之轮廓');
+  chime(587.33, 1.1, .08);
+}
+function updatePhaseUI(){
+  phaseTrack.querySelectorAll('.phase').forEach(p=>{
+    const i = +p.dataset.i;
+    p.classList.toggle('active', i === analysisPhase);
+    p.classList.toggle('done', i < analysisPhase);
+  });
+}
+const PHASE_LOG = ['观掌形 · 描手之轮廓', '取三线 · 命纹渐次点亮', '定五行 · 元神环掌而立', '启天机 · 万息汇于掌心'];
+function tickAnalysis(now){
+  if(analysisPhase < 0) return;
+  if(now - phaseT0 > PHASE_DUR[analysisPhase]){
+    analysisPhase++;
+    phaseT0 = now;
+    if(analysisPhase >= 4){
+      analysisPhase = -1;
+      updatePhaseUI();
+      revealResults();
+      return;
+    }
+    updatePhaseUI();
+    addLog(PHASE_LOG[analysisPhase]);
+    chime([587.33, 659.25, 739.99, 880][analysisPhase], 1.1, .08);
+  }
+}
+
+/* ════════════════ 结果揭示 ════════════════ */
+function elBars(count){
+  const max = Math.max(1, ...ELEMENTS.map(e=>count[e]));
+  return `<div class="elbars">` + ELEMENTS.map(e=>`
+    <div class="elbar">
+      <span class="en el-${e}">${e}</span>
+      <div class="track"><div class="fill f-${e}" data-w="${Math.round(count[e]/max*100)}"></div></div>
+      <span class="cnt">${count[e]}</span>
+    </div>`).join('') + `</div>`;
+}
+function revealResults(){
+  setState(S.REVEAL);
+  revealBloom = 1;
+  scrollIdle.style.display = 'none';
+  const r = reading, b = userBazi;
+  const pillarsHTML = b ? `
+    <div class="pillars">${b.pillars.map(p=>`
+      <div class="pillar"><div class="pl">${p.label}</div>
+      <div class="pg">${GAN[p.g]}<b>${ZHI[p.z]}</b></div></div>`).join('')}
+      ${b.pillars.length<4 ? '<div class="pillar"><div class="pl">时柱</div><div class="pg" style="color:var(--paper-faint)">未<b>录</b></div></div>' : ''}
+    </div>
+    ${elBars(b.count)}
+    <div class="kv"><span class="k">日主</span><span class="v gold">${b.dayGan}${b.dayMaster} · 生肖属${b.zodiac}</span></div>
+    <div class="kv"><span class="k">命局</span><span class="v">${b.dominant}气最旺 · ${b.weakest}气偏弱</span></div>
+    <div class="kv"><span class="k">喜用</span><span class="v jade">宜补 ${b.favor} 行</span></div>`
+    : `<div class="prose">未录生辰，五行命格以掌相所定之 <b>${r.hand.el}</b> 为本。</div>`;
+
+  resultArea.innerHTML = `
+    <div class="rcard" data-d="0">
+      <h3 data-glyph="谶">天机主谶</h3>
+      <div class="oracle">${r.oracle[0]}<br>${r.oracle[1]}</div>
+      <div class="oracle-note">${r.oracleNote}</div>
+    </div>
+
+    <div class="rcard" data-d="1">
+      <h3 data-glyph="命">五行命格</h3>
+      <div class="kv"><span class="k">掌型五行</span><span class="v gold">${r.hand.cn}</span></div>
+      <div class="kv"><span class="k">掌相</span><span class="v">${r.hand.desc}</span></div>
+      <div class="kv"><span class="k">禀性</span><span class="v">${r.hand.traits}</span></div>
+      ${pillarsHTML}
+      <div class="prose" style="margin-top:12px"><span class="lead">掌命互参 ——</span> ${r.cross}</div>
+    </div>
+
+    <div class="rcard" data-d="2">
+      <h3 data-glyph="业">事业运势</h3>
+      <div class="prose">${r.career}</div>
+    </div>
+
+    <div class="rcard" data-d="3">
+      <h3 data-glyph="情">情感倾向</h3>
+      <div class="prose">${r.love}</div>
+    </div>
+
+    <div class="rcard" data-d="4">
+      <h3 data-glyph="养">手诊调养</h3>
+      <div class="kv"><span class="k">生命力</span><span class="v gold">${r.hand.vitality} 分</span></div>
+      <div class="kv"><span class="k">重点脏腑</span><span class="v jade">${r.health.organs}</span></div>
+      <div class="prose" style="margin:8px 0 2px"><b>体质倾向：</b>${r.health.体质}<br><b>易感之处：</b>${r.health.易感}<br><b>调养之法：</b>${r.health.调养}</div>
+      <div class="organ-grid">
+        ${FINGER_ORGAN.map(f=>`<div class="organ-chip"><b>${f.name} · ${f.organ}</b><span>${f.care}</span></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="rcard" data-d="5">
+      <h3 data-glyph="运">改运指引 · 宜补${r.favor}行</h3>
+      <div class="luck-grid">
+        <div class="luck-item"><div class="lk">宜近之色</div><div class="lv">${r.luck.color}</div></div>
+        <div class="luck-item"><div class="lk">宜行之方</div><div class="lv">${r.luck.dir}</div></div>
+        <div class="luck-item"><div class="lk">有缘之数</div><div class="lv">${r.luck.num}</div></div>
+        <div class="luck-item"><div class="lk">日课</div><div class="lv" style="font-size:.74rem;line-height:1.8;color:var(--paper)">${r.luck.act}</div></div>
+      </div>
+      <div class="again-row">
+        <button class="ghost-btn" id="btnAgain">再 测 一 掌</button>
+      </div>
+      <div class="disclaimer">本游戏内容取材于传统手相、八字与中医手诊典籍，属文化娱乐体验，<br>不构成医学诊断或人生决策依据；身体不适请及时就医。</div>
+    </div>
+  `;
+  resultArea.querySelectorAll('.rcard').forEach(c=>{
+    setTimeout(()=> c.classList.add('in'), 200 + (+c.dataset.d)*260);
+  });
+  setTimeout(()=>{
+    resultArea.querySelectorAll('.elbar .fill').forEach(f=> f.style.width = f.dataset.w + '%');
+  }, 900);
+  const ba = document.getElementById('btnAgain');
+  if(ba) ba.onclick = ()=> btnRestart.onclick();
+  scrollFrame.scrollTop = 0;
+}
+
+/* ════════════════════════════════════════════════════════════
+   渲染 · ① 背景星空
+   ════════════════════════════════════════════════════════════ */
+let stars = [], dpr = 1;
+function resizeBG(){
+  dpr = Math.min(window.devicePixelRatio||1, 2);
+  bgCanvas.width = innerWidth*dpr; bgCanvas.height = innerHeight*dpr;
+  bgCtx.setTransform(dpr,0,0,dpr,0,0);
+  stars = Array.from({length: 150}, ()=>({
+    x:Math.random()*innerWidth, y:Math.random()*innerHeight,
+    r:Math.random()*1.2+.2, p:Math.random()*TAU, s:.4+Math.random()*1.2,
+  }));
+}
+function drawBG(t){
+  bgCtx.clearRect(0,0,innerWidth,innerHeight);
+  // 星宿
+  for(const st of stars){
+    const a = .25 + .55*Math.abs(Math.sin(t*0.0006*st.s + st.p));
+    bgCtx.globalAlpha = a;
+    bgCtx.fillStyle = '#cfe6df';
+    bgCtx.beginPath(); bgCtx.arc(st.x, st.y, st.r, 0, TAU); bgCtx.fill();
+  }
+  bgCtx.globalAlpha = 1;
+  // 远处浑天仪暗影（缓旋的同心环）
+  const cx = innerWidth*0.5, cy = innerHeight*0.04, R = Math.max(innerWidth,innerHeight)*0.7;
+  bgCtx.save();
+  bgCtx.translate(cx, cy);
+  bgCtx.rotate(t*0.000012);
+  bgCtx.strokeStyle = 'rgba(217,179,106,0.05)';
+  bgCtx.lineWidth = 1;
+  for(const k of [0.55, 0.72, 0.9]){
+    bgCtx.beginPath(); bgCtx.arc(0, 0, R*k, 0, TAU); bgCtx.stroke();
+  }
+  bgCtx.setLineDash([2, 14]);
+  bgCtx.strokeStyle = 'rgba(217,179,106,0.08)';
+  bgCtx.beginPath(); bgCtx.arc(0, 0, R*0.82, 0, TAU); bgCtx.stroke();
+  bgCtx.setLineDash([]);
+  bgCtx.restore();
+}
+
+/* ════════════════════════════════════════════════════════════
+   渲染 · ② 天机盘（程序化：石体 + 掌印凹槽 + 符文环 + 星盘 + 金尘）
+   ════════════════════════════════════════════════════════════ */
+let W=0, H=0, CX=0, CY=0, SR=0;          // 石区逻辑尺寸
+let stoneTex = null, slotMask = null, slotTint = null, slotOutline = null, slotOutlineTint = null;
+let motes = [];
+
+const FINGER_GEO = [   // 掌印凹槽五指：基点偏移(ox,oy 相对槽心)、角度、长、宽
+  { ox:-50, oy: 10, a:-0.95, len:54, w:17 },   // 拇指
+  { ox:-29, oy:-42, a:-0.17, len:70, w:14 },   // 食指
+  { ox: -6, oy:-48, a: 0.00, len:80, w:15 },   // 中指
+  { ox: 17, oy:-45, a: 0.14, len:72, w:14 },   // 无名指
+  { ox: 38, oy:-34, a: 0.38, len:55, w:11 },   // 小指
+];
+function buildSlotPath(ctx, cx, cy, s){
+  ctx.beginPath();
+  ctx.ellipse(cx, cy+16*s, 50*s, 58*s, 0, 0, TAU);
+  for(const f of FINGER_GEO){
+    ctx.save();
+    ctx.translate(cx + f.ox*s, cy + f.oy*s);
+    ctx.rotate(f.a);
+    if(ctx.roundRect) ctx.roundRect(-f.w*s/2, -f.len*s, f.w*s, (f.len+16)*s, f.w*s/2);
+    else ctx.rect(-f.w*s/2, -f.len*s, f.w*s, (f.len+16)*s);
+    ctx.restore();
+  }
+}
+function prerenderStone(){
+  const rect = $('altarInner').getBoundingClientRect();
+  W = rect.width; H = rect.height;
+  for(const cv of [stoneCanvas, handCanvas]){
+    cv.width = W*dpr; cv.height = H*dpr;
+  }
+  sCtx.setTransform(dpr,0,0,dpr,0,0);
+  hCtx.setTransform(dpr,0,0,dpr,0,0);
+  CX = W*0.5; CY = H*0.50; SR = Math.min(W,H)*0.40;
+
+  // 石体纹理（离屏一次性）
+  stoneTex = document.createElement('canvas');
+  stoneTex.width = W*dpr; stoneTex.height = H*dpr;
+  const tc = stoneTex.getContext('2d'); tc.setTransform(dpr,0,0,dpr,0,0);
+  const g = tc.createRadialGradient(CX-SR*0.3, CY-SR*0.45, SR*0.1, CX, CY, SR*1.15);
+  g.addColorStop(0, '#27343a'); g.addColorStop(0.45, '#16222a');
+  g.addColorStop(0.8, '#0c151b'); g.addColorStop(1, '#081015');
+  tc.save();
+  tc.beginPath(); tc.ellipse(CX, CY, SR, SR, 0, 0, TAU); tc.clip();
+  tc.fillStyle = g; tc.fillRect(0,0,W,H);
+  // 石面斑驳
+  for(let i=0;i<900;i++){
+    const a = Math.random()*TAU, rr = Math.sqrt(Math.random())*SR*0.98;
+    const x = CX+Math.cos(a)*rr, y = CY+Math.sin(a)*rr;
+    tc.fillStyle = Math.random()<0.5 ? 'rgba(180,200,200,0.03)' : 'rgba(0,0,0,0.12)';
+    tc.beginPath(); tc.arc(x, y, Math.random()*1.8+.3, 0, TAU); tc.fill();
+  }
+  // 裂璺
+  tc.strokeStyle = 'rgba(0,0,0,0.28)'; tc.lineWidth = 1;
+  for(let i=0;i<5;i++){
+    let x = CX + (Math.random()-.5)*SR*1.4, y = CY + (Math.random()-.5)*SR*1.2;
+    tc.beginPath(); tc.moveTo(x,y);
+    for(let k=0;k<4;k++){ x += (Math.random()-.5)*SR*0.3; y += (Math.random()-.3)*SR*0.22; tc.lineTo(x,y); }
+    tc.stroke();
+  }
+  // 边缘内描金
+  tc.strokeStyle = 'rgba(217,179,106,0.18)'; tc.lineWidth = 2;
+  tc.beginPath(); tc.ellipse(CX, CY, SR*0.985, SR*0.985, 0, 0, TAU); tc.stroke();
+  tc.restore();
+
+  // 掌印凹槽遮罩（离屏）
+  const slotScale = SR/170;
+  slotMask = document.createElement('canvas');
+  slotMask.width = W*dpr; slotMask.height = H*dpr;
+  const mc = slotMask.getContext('2d', { willReadFrequently:true });
+  mc.setTransform(dpr,0,0,dpr,0,0);
+  mc.fillStyle = '#fff';
+  buildSlotPath(mc, CX, CY, slotScale); mc.fill();
+  slotTint = document.createElement('canvas');
+  slotTint.width = slotMask.width; slotTint.height = slotMask.height;
+
+  // 神掌外缘：膨胀(向外铺)再减去原形 → 仅得整体外轮廓一圈，去除手指/掌心内部重合线
+  slotOutline = document.createElement('canvas');
+  slotOutline.width = slotMask.width; slotOutline.height = slotMask.height;
+  const oc = slotOutline.getContext('2d');
+  const rim = 1.5*dpr, steps = 28;
+  for(let i=0;i<steps;i++){ const a=i/steps*TAU;
+    oc.drawImage(slotMask, Math.cos(a)*rim, Math.sin(a)*rim); }
+  oc.globalCompositeOperation = 'destination-out';
+  oc.drawImage(slotMask, 0, 0);
+  oc.globalCompositeOperation = 'source-over';
+  slotOutlineTint = document.createElement('canvas');
+  slotOutlineTint.width = slotMask.width; slotOutlineTint.height = slotMask.height;
+
+  // 如来神掌：在掌印形内采样多粒子（离屏一次性）
+  buildSlotParticles(mc, slotScale);
+
+  // 金尘
+  motes = Array.from({length: 70}, ()=> spawnMote(true));
+}
+/* 在掌印手形内部采样粒子，构成发光神掌 */
+let slotParticles = [];
+function buildSlotParticles(maskCtx, s){
+  slotParticles = [];
+  let data = null;
+  try { data = maskCtx.getImageData(0,0,slotMask.width, slotMask.height).data; }
+  catch(e){ data = null; }
+  const mw = slotMask.width, mh = slotMask.height;
+  const x0 = CX-66*s, x1 = CX+66*s, y0 = CY-98*s, y1 = CY+86*s;
+  const target = 460;
+  let tries = 0;
+  while(slotParticles.length < target && tries < target*60){
+    tries++;
+    const x = x0 + Math.random()*(x1-x0);
+    const y = y0 + Math.random()*(y1-y0);
+    let inside = true;
+    if(data){
+      const px = Math.floor(x*dpr), py = Math.floor(y*dpr);
+      if(px<0||py<0||px>=mw||py>=mh) inside = false;
+      else inside = data[(py*mw+px)*4+3] > 12;
+    }
+    if(!inside) continue;
+    slotParticles.push({
+      x, y,
+      sz: 0.35 + Math.random()*0.95,
+      tw: Math.random()*TAU,
+      tsp: 0.0018 + Math.random()*0.0042,
+      dr: Math.random()*TAU,
+      dsp: 0.0006 + Math.random()*0.0013,
+      damp: (1.2 + Math.random()*2.8) * s,
+      ph: Math.random()*TAU,
+    });
+  }
+}
+function hexA(h, a){
+  const n = parseInt(h.slice(1),16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+function spawnMote(anywhere){
+  const a = Math.random()*TAU;
+  const r = anywhere ? Math.random()*SR*1.5 : SR*(1.1+Math.random()*0.4);
+  return {
+    x: CX+Math.cos(a)*r, y: CY+Math.sin(a)*r,
+    vx:(Math.random()-.5)*.12, vy:-(.05+Math.random()*.18),
+    r:.5+Math.random()*1.4, a:Math.random()*0.5+0.2, p:Math.random()*TAU,
+  };
+}
+function tintSlot(color, alpha){
+  const c = slotTint.getContext('2d');
+  c.setTransform(1,0,0,1,0,0);
+  c.clearRect(0,0,slotTint.width,slotTint.height);
+  c.globalAlpha = alpha;
+  c.fillStyle = color;
+  c.fillRect(0,0,slotTint.width,slotTint.height);
+  c.globalCompositeOperation = 'destination-in';
+  c.drawImage(slotMask, 0, 0);
+  c.globalCompositeOperation = 'source-over';
+  c.globalAlpha = 1;
+  return slotTint;
+}
+function tintOutline(color, alpha){
+  const c = slotOutlineTint.getContext('2d');
+  c.setTransform(1,0,0,1,0,0);
+  c.clearRect(0,0,slotOutlineTint.width,slotOutlineTint.height);
+  c.globalAlpha = alpha;
+  c.fillStyle = color;
+  c.fillRect(0,0,slotOutlineTint.width,slotOutlineTint.height);
+  c.globalCompositeOperation = 'destination-in';
+  c.drawImage(slotOutline, 0, 0);
+  c.globalCompositeOperation = 'source-over';
+  c.globalAlpha = 1;
+  return slotOutlineTint;
+}
+
+const RUNES_OUT = '乾兑离震巽坎艮坤'.split('');
+const RUNES_IN  = '甲乙丙丁戊己庚辛壬癸'.split('');
+const TRIGRAMS  = '☰☱☲☳☴☵☶☷'.split('');
+const EL_CHAR_COLORS = { '金':'#e8d48f', '木':'#86d68f', '水':'#7cc4ec', '火':'#ec8a78', '土':'#d9b36a' };
+
+function drawStone(t){
+  sCtx.clearRect(0,0,W,H);
+  const slotScale = SR/170;
+
+  /* 能量目标值：随状态推进 */
+  let target = 0.12;
+  if(state===S.AWAIT)      target = align.ok ? 0.55 : 0.22;
+  if(state===S.ALIGNED)    target = 0.55 + holdProgress*0.25;
+  if(state===S.SENSED)     target = 0.9;
+  if(state===S.ANALYZING)  target = 0.8;
+  if(state===S.REVEAL)     target = 0.6;
+  glowEnergy = lerp(glowEnergy, target, 0.04);
+  const breath = 0.5 + 0.5*Math.sin(t*0.0016);
+
+  /* 石下投影 + 灵气基座 */
+  sCtx.save();
+  const baseG = sCtx.createRadialGradient(CX, CY+SR*0.85, 0, CX, CY+SR*0.85, SR*1.05);
+  baseG.addColorStop(0, `rgba(111,227,193,${0.10*glowEnergy+0.02})`);
+  baseG.addColorStop(0.5, 'rgba(0,0,0,0.35)');
+  baseG.addColorStop(1, 'rgba(0,0,0,0)');
+  sCtx.fillStyle = baseG;
+  sCtx.beginPath(); sCtx.ellipse(CX, CY+SR*0.88, SR*1.05, SR*0.22, 0, 0, TAU); sCtx.fill();
+  sCtx.restore();
+
+  /* 外圈星盘（分析时显，平时极淡） */
+  const ringVis = state===S.ANALYZING ? 1 : (state===S.REVEAL ? 0.5 : 0.16+glowEnergy*0.2);
+  const spin = t*0.00018 * (state===S.ANALYZING ? 3.2 : 1);
+  sCtx.save();
+  sCtx.translate(CX, CY);
+  sCtx.globalAlpha = ringVis;
+  sCtx.strokeStyle = 'rgba(217,179,106,0.45)';
+  sCtx.lineWidth = 1;
+  sCtx.save(); sCtx.rotate(spin);
+  sCtx.setLineDash([3, 9]);
+  sCtx.beginPath(); sCtx.arc(0,0,SR*1.12,0,TAU); sCtx.stroke();
+  sCtx.setLineDash([]);
+  // 28 宿刻度
+  for(let i=0;i<28;i++){
+    const a = i/28*TAU;
+    sCtx.beginPath();
+    sCtx.moveTo(Math.cos(a)*SR*1.08, Math.sin(a)*SR*1.08);
+    sCtx.lineTo(Math.cos(a)*SR*1.12, Math.sin(a)*SR*1.12);
+    sCtx.stroke();
+  }
+  sCtx.restore();
+  // 八卦符
+  sCtx.save(); sCtx.rotate(-spin*0.6);
+  sCtx.font = `${Math.round(SR*0.085)}px serif`;
+  sCtx.textAlign='center'; sCtx.textBaseline='middle';
+  sCtx.fillStyle = `rgba(217,179,106,${0.5+0.3*breath})`;
+  for(let i=0;i<8;i++){
+    const a = i/8*TAU - Math.PI/2;
+    sCtx.save();
+    sCtx.translate(Math.cos(a)*SR*1.21, Math.sin(a)*SR*1.21);
+    sCtx.rotate(a+Math.PI/2);
+    sCtx.fillText(TRIGRAMS[i], 0, 0);
+    sCtx.restore();
+  }
+  sCtx.restore();
+  sCtx.restore();
+
+  /* 石体 */
+  sCtx.save();
+  sCtx.shadowColor = `rgba(111,227,193,${0.25*glowEnergy})`;
+  sCtx.shadowBlur = 50*glowEnergy + 8;
+  sCtx.drawImage(stoneTex, 0, 0, W, H);
+  sCtx.restore();
+
+  /* 石缘符文双环 */
+  const runeAlpha = 0.25 + glowEnergy*0.6;
+  sCtx.save();
+  sCtx.translate(CX, CY);
+  sCtx.font = `${Math.round(SR*0.062)}px 'Ma Shan Zheng','Kaiti SC','STKaiti','KaiTi',serif`;
+  sCtx.textAlign='center'; sCtx.textBaseline='middle';
+  for(let i=0;i<RUNES_OUT.length;i++){
+    const a = i/RUNES_OUT.length*TAU + t*0.00006 - Math.PI/2;
+    const flick = 0.7 + 0.3*Math.sin(t*0.002 + i*1.9);
+    sCtx.save();
+    sCtx.translate(Math.cos(a)*SR*0.86, Math.sin(a)*SR*0.86);
+    sCtx.rotate(a+Math.PI/2);
+    sCtx.fillStyle = `rgba(217,179,106,${runeAlpha*flick})`;
+    sCtx.shadowColor = 'rgba(217,179,106,0.8)'; sCtx.shadowBlur = 8*glowEnergy;
+    sCtx.fillText(RUNES_OUT[i], 0, 0);
+    sCtx.restore();
+  }
+  sCtx.font = `${Math.round(SR*0.045)}px 'Ma Shan Zheng','Kaiti SC','STKaiti','KaiTi',serif`;
+  for(let i=0;i<RUNES_IN.length;i++){
+    const a = i/RUNES_IN.length*TAU - t*0.00009;
+    sCtx.save();
+    sCtx.translate(Math.cos(a)*SR*0.72, Math.sin(a)*SR*0.72);
+    sCtx.rotate(a+Math.PI/2);
+    sCtx.fillStyle = `rgba(111,227,193,${(0.16+glowEnergy*0.4)*(0.6+0.4*Math.sin(t*0.0017+i))})`;
+    sCtx.fillText(RUNES_IN[i], 0, 0);
+    sCtx.restore();
+  }
+  sCtx.restore();
+
+  /* 如来神掌已移除：天机盘中央不再绘制掌印手形 */
+
+  /* 对齐保持进度环 */
+  if(state===S.ALIGNED && holdProgress > 0){
+    sCtx.save();
+    sCtx.strokeStyle = '#9af2d2'; sCtx.lineWidth = 3;
+    sCtx.shadowColor = '#9af2d2'; sCtx.shadowBlur = 12;
+    sCtx.lineCap = 'round';
+    sCtx.beginPath();
+    sCtx.arc(CX, CY, SR*0.6, -Math.PI/2, -Math.PI/2 + holdProgress*TAU);
+    sCtx.stroke();
+    sCtx.restore();
+  }
+
+  /* 定五行：五行字环绕掌心 */
+  if(state===S.ANALYZING && analysisPhase===2){
+    const pt = (t-phaseT0)/PHASE_DUR[2];
+    sCtx.save();
+    sCtx.translate(CX, CY);
+    sCtx.font = `${Math.round(SR*0.11)}px 'Ma Shan Zheng','Kaiti SC','STKaiti','KaiTi',serif`;
+    sCtx.textAlign='center'; sCtx.textBaseline='middle';
+    ELEMENTS.forEach((e,i)=>{
+      const appear = clamp(pt*5 - i, 0, 1);
+      const a = i/5*TAU - Math.PI/2 + t*0.0012;
+      const r = SR*0.52;
+      sCtx.save();
+      sCtx.translate(Math.cos(a)*r, Math.sin(a)*r);
+      sCtx.globalAlpha = appear*(0.75+0.25*Math.sin(t*0.004+i));
+      sCtx.fillStyle = EL_CHAR_COLORS[e];
+      sCtx.shadowColor = EL_CHAR_COLORS[e]; sCtx.shadowBlur = 16;
+      sCtx.scale(0.6+appear*0.4, 0.6+appear*0.4);
+      sCtx.fillText(e, 0, 0);
+      sCtx.restore();
+    });
+    sCtx.restore();
+  }
+
+  /* 启天机：能量汇心 + 揭示光柱 */
+  if((state===S.ANALYZING && analysisPhase===3) || state===S.REVEAL){
+    const core = state===S.REVEAL ? 0.8+0.2*breath : clamp((t-phaseT0)/PHASE_DUR[3],0,1);
+    const cg = sCtx.createRadialGradient(CX, CY, 0, CX, CY, SR*0.4*core+6);
+    const cc = state===S.REVEAL ? '246,221,156' : '154,242,210';
+    cg.addColorStop(0, `rgba(255,255,240,${0.85*core})`);
+    cg.addColorStop(0.3, `rgba(${cc},${0.5*core})`);
+    cg.addColorStop(1, 'rgba(0,0,0,0)');
+    sCtx.fillStyle = cg;
+    sCtx.beginPath(); sCtx.arc(CX, CY, SR*0.45*core+8, 0, TAU); sCtx.fill();
+  }
+
+  /* 金色星尘 */
+  for(const m of motes){
+    if(state===S.ANALYZING && analysisPhase>=2){
+      // 汇入掌心
+      m.vx += (CX-m.x)*0.0006; m.vy += (CY-m.y)*0.0006;
+    } else if(state===S.REVEAL){
+      m.vy -= 0.004;  // 缓缓上升
+    }
+    m.x += m.vx; m.y += m.vy;
+    m.vx *= 0.985; m.vy *= 0.985;
+    if(m.y < -10 || dist(m,{x:CX,y:CY}) > SR*1.8 || (state===S.ANALYZING && dist(m,{x:CX,y:CY})<6)){
+      Object.assign(m, spawnMote(false));
+    }
+    const al = m.a*(0.5+0.5*Math.sin(t*0.003+m.p))*(0.4+glowEnergy);
+    sCtx.globalAlpha = clamp(al,0,1);
+    sCtx.fillStyle = '#f1d795';
+    sCtx.shadowColor = '#f1d795'; sCtx.shadowBlur = 6;
+    sCtx.beginPath(); sCtx.arc(m.x, m.y, m.r, 0, TAU); sCtx.fill();
+  }
+  sCtx.globalAlpha = 1; sCtx.shadowBlur = 0;
+}
+
+/* ════════════════════════════════════════════════════════════
+   渲染 · ③ 透明掌纹线描层（手掌能量线 · 不显示摄像头画面）
+   ════════════════════════════════════════════════════════════ */
+function getPalmLines(lm){
+  const L = i=>lm[i];
+  const palmCX = (L(5).x+L(9).x+L(13).x+L(17).x)*0.25;
+  const palmCY = (L(5).y+L(9).y+L(13).y+L(17).y)*0.25;
+  const palmW = Math.abs(L(17).x-L(5).x), palmH = Math.abs(L(0).y-L(9).y);
+  const webX = L(1).x*0.4+L(5).x*0.6, webY = L(1).y*0.5+L(5).y*0.5;
+  return {
+    life:{ start:{x:webX,y:webY},
+      cp1:{x:L(2).x*0.85+palmCX*0.15, y:L(2).y*0.7+palmCY*0.3},
+      cp2:{x:L(1).x*0.7+L(0).x*0.3, y:L(1).y*0.55+L(0).y*0.45},
+      end:{x:L(0).x*0.7+L(1).x*0.3, y:L(0).y*0.6+L(1).y*0.4} },
+    head:{ start:{x:webX+palmW*0.05, y:webY+palmH*0.04},
+      cp1:{x:palmCX*0.55+L(5).x*0.45, y:palmCY*0.85+L(5).y*0.15},
+      cp2:{x:palmCX*0.6+L(17).x*0.4, y:palmCY*0.8+L(17).y*0.2},
+      end:{x:L(17).x*0.5+L(13).x*0.5, y:L(17).y*0.4+L(13).y*0.6} },
+    heart:{ start:{x:L(17).x*0.85+L(13).x*0.15, y:L(17).y+palmH*0.06},
+      cp1:{x:L(13).x*0.75+L(17).x*0.25, y:L(13).y+palmH*0.05},
+      cp2:{x:L(9).x*0.65+L(13).x*0.35, y:L(9).y+palmH*0.045},
+      end:{x:L(5).x*0.75+L(9).x*0.25, y:L(5).y+palmH*0.04} },
+  };
+}
+const HAND_CONN = [[0,1],[1,2],[2,3],[3,4],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17],[1,5]];
+
+/* 将归一化关键点映射进天机盘坐标系。
+   aligned=true 时锚定槽心；否则保留偏移，让用户看见手的相对位置 */
+let smoothPts = null;
+const PW_IDEAL = 0.26;          // 标准掌宽（归一化）：约此距离时掌印恰好填槽
+let lastHandScale = 1;          // 供粒子层估算粒径
+let lastDispW = SR*0.62;        // 当前屏上掌宽（像素），反映远近
+/* 计算映射比例：
+   锚定（对齐锁定）→ 规格化使掌印填满凹槽；
+   未锚定（实时预览）→ 用固定比例，使屏上掌宽随真实掌宽（远近）线性变化 */
+function handScale(pw, anchored){
+  return anchored ? (SR*0.62)/pw : (SR*0.62)/PW_IDEAL;
+}
+function mapHand(lm, anchored){
+  const c = { x:(lm[0].x+lm[5].x+lm[9].x+lm[13].x+lm[17].x)/5,
+              y:(lm[0].y+lm[5].y+lm[9].y+lm[13].y+lm[17].y)/5 };
+  const pw = Math.max(0.05, Math.abs(lm[17].x-lm[5].x));
+  const scale = handScale(pw, anchored);
+  lastHandScale = scale;
+  lastDispW = pw * scale;       // 实时模式下随远近变化
+  const offX = anchored ? 0 : (c.x-0.5)*W*0.85;
+  const offY = anchored ? 0 : (c.y-0.52)*H*0.85;
+  const raw = lm.map(p=>({
+    x: CX + (p.x-c.x)*scale + offX,
+    y: CY + (p.y-c.y)*scale + offY + 6,
+  }));
+  if(!smoothPts || smoothPts.length !== raw.length) smoothPts = raw;
+  else smoothPts = smoothPts.map((p,i)=>({ x:lerp(p.x, raw[i].x, 0.45), y:lerp(p.y, raw[i].y, 0.45) }));
+  return smoothPts;
+}
+function bez(ctx, p0,p1,p2,p3, color, width, blur, alpha, prog=1){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.shadowColor = color; ctx.shadowBlur = blur; ctx.lineCap='round';
+  if(prog < 1){
+    // 以采样折线呈现进度
+    ctx.beginPath();
+    for(let i=0;i<=40*prog;i++){
+      const tt=i/40, u=1-tt;
+      const x=u*u*u*p0.x+3*u*u*tt*p1.x+3*u*tt*tt*p2.x+tt*tt*tt*p3.x;
+      const y=u*u*u*p0.y+3*u*u*tt*p1.y+3*u*tt*tt*p2.y+tt*tt*tt*p3.y;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(p0.x,p0.y);
+    ctx.bezierCurveTo(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawHandLayer(t){
+  hCtx.clearRect(0,0,W,H);
+  let lm = null, anchored = false, alpha = 1;
+
+  if(state===S.AWAIT || state===S.ALIGNED){
+    lm = latestLM; anchored = align.ok;
+    alpha = align.ok ? 0.95 : 0.45;
+  } else if(state===S.SENSED){
+    lm = latestLM || capturedLM; anchored = true; alpha = 1;
+  } else if(state===S.ANALYZING || state===S.REVEAL){
+    lm = capturedLM; anchored = true; alpha = state===S.REVEAL ? 0.85 : 1;
+  }
+  if(!lm) { smoothPts = null; return; }
+  const pts = mapHand(lm, anchored);
+
+  const isReveal = state===S.REVEAL;
+  const mainC = isReveal ? '#f0cf8a' : '#8ff0cf';
+  const lineC = isReveal ? '#f6dd9c' : '#bdf6e2';
+
+  /* 分析第 0 节点：自上而下的描形显影 */
+  let clipY = H;
+  if(state===S.ANALYZING && analysisPhase===0){
+    clipY = lerp(Math.min(...pts.map(p=>p.y))-20, Math.max(...pts.map(p=>p.y))+20, clamp((t-phaseT0)/PHASE_DUR[0],0,1));
+    hCtx.save(); hCtx.beginPath(); hCtx.rect(0,0,W,clipY); hCtx.clip();
+  }
+
+  /* ── 清晰骨络线 + 关节节点（不虚化；加密节点更合手相）── */
+  const sizeK = clamp(lastDispW/(SR*0.62), 0.6, 1.9);   // 远近影响线宽与点径
+
+  // 骨络连线：外发光 + 内实线
+  for(const [i,j] of HAND_CONN){
+    hCtx.save();
+    hCtx.lineCap='round';
+    hCtx.strokeStyle = mainC; hCtx.shadowColor = mainC;
+    hCtx.globalAlpha = alpha*0.30; hCtx.lineWidth = 3.0*sizeK; hCtx.shadowBlur = 12;
+    hCtx.beginPath(); hCtx.moveTo(pts[i].x,pts[i].y); hCtx.lineTo(pts[j].x,pts[j].y); hCtx.stroke();
+    hCtx.globalAlpha = alpha*0.95; hCtx.lineWidth = 1.3*sizeK; hCtx.shadowBlur = 4;
+    hCtx.beginPath(); hCtx.moveTo(pts[i].x,pts[i].y); hCtx.lineTo(pts[j].x,pts[j].y); hCtx.stroke();
+    hCtx.restore();
+  }
+
+  // 加密小节点：每段骨线插入 2 个中间关节，让手形更细致、更合手相
+  for(const [i,j] of HAND_CONN){
+    for(const tt of [0.34, 0.67]){
+      const x = lerp(pts[i].x,pts[j].x,tt), y = lerp(pts[i].y,pts[j].y,tt);
+      hCtx.save();
+      hCtx.globalAlpha = alpha*0.78;
+      hCtx.fillStyle = mainC; hCtx.shadowColor = mainC; hCtx.shadowBlur = 4;
+      hCtx.beginPath(); hCtx.arc(x, y, 1.35*sizeK, 0, TAU); hCtx.fill();
+      hCtx.fillStyle = '#fff'; hCtx.shadowBlur = 1.5;
+      hCtx.beginPath(); hCtx.arc(x, y, 0.55*sizeK, 0, TAU); hCtx.fill();
+      hCtx.restore();
+    }
+  }
+
+  // 主关节节点（21 点，带脉动亮核）
+  for(let i=0;i<pts.length;i++){
+    const p = pts[i], big = (i===0);
+    const pulse = 1 + Math.sin(t*0.003 + p.x*0.02)*0.18;
+    const rr = (big ? 3.6 : 2.7) * sizeK * pulse;
+    hCtx.save();
+    hCtx.globalAlpha = alpha*0.95;
+    hCtx.fillStyle = mainC; hCtx.shadowColor = mainC; hCtx.shadowBlur = big?12:8;
+    hCtx.beginPath(); hCtx.arc(p.x, p.y, rr, 0, TAU); hCtx.fill();
+    hCtx.fillStyle = '#fff'; hCtx.shadowBlur = 2;
+    hCtx.beginPath(); hCtx.arc(p.x, p.y, rr*0.42, 0, TAU); hCtx.fill();
+    hCtx.restore();
+  }
+  if(state===S.ANALYZING && analysisPhase===0) hCtx.restore();
+
+  /* 三主线：分析第 1 节点逐条点亮；其余状态对齐后常亮 */
+  const showLines = anchored || state===S.ANALYZING || state===S.REVEAL;
+  if(showLines){
+    const ln = getPalmLines(lm);
+    // 注意：palm line 控制点取归一化坐标，需用同一映射
+    const cc = { x:(lm[0].x+lm[5].x+lm[9].x+lm[13].x+lm[17].x)/5,
+                 y:(lm[0].y+lm[5].y+lm[9].y+lm[13].y+lm[17].y)/5 };
+    const pw = Math.max(0.05, Math.abs(lm[17].x-lm[5].x));
+    const scale = handScale(pw, anchored);
+    const off = anchored ? {x:0,y:0} : {x:(cc.x-0.5)*W*0.85, y:(cc.y-0.52)*H*0.85};
+    const M = p=>({ x:CX+(p.x-cc.x)*scale+off.x, y:CY+(p.y-cc.y)*scale+off.y+6 });
+    const lines = [
+      { d:ln.life,  name:'生命线', i:0 },
+      { d:ln.head,  name:'智慧线', i:1 },
+      { d:ln.heart, name:'感情线', i:2 },
+    ];
+    for(const Lx of lines){
+      let prog = 1, a = alpha*0.85;
+      if(state===S.ANALYZING && analysisPhase===1){
+        prog = clamp(((t-phaseT0)/PHASE_DUR[1])*3 - Lx.i, 0, 1);
+        a = alpha * prog;
+      } else if(state===S.ANALYZING && analysisPhase===0){ a = 0; }
+      if(a <= 0.01) continue;
+      bez(hCtx, M(Lx.d.start), M(Lx.d.cp1), M(Lx.d.cp2), M(Lx.d.end), lineC, 1.6, 12, a, prog);
+      if(prog > 0.5){
+        const lp = M(Lx.d.cp1);
+        hCtx.save();
+        hCtx.globalAlpha = a*0.85;
+        hCtx.font = `${Math.round(SR*0.052)}px 'Ma Shan Zheng','Kaiti SC','STKaiti','KaiTi',serif`;
+        hCtx.fillStyle = lineC; hCtx.shadowColor = lineC; hCtx.shadowBlur = 8;
+        hCtx.fillText(Lx.name, lp.x+8, lp.y);
+        hCtx.restore();
+      }
+    }
+  }
+}
+
+/* ════════════════ 主循环 ════════════════ */
+function tick(now){
+  drawBG(now);
+  if(W>0){
+    drawStone(now);
+    drawHandLayer(now);
+  }
+  if(demoMode) demoTick(now);
+
+  /* 等待/对齐逻辑 */
+  if(state===S.AWAIT || state===S.ALIGNED){
+    if(latestLM || demoMode){
+      const lm = latestLM;
+      if(lm){
+        align = { ...evalAlignment(lm), since: align.since };
+        if(align.ok){
+          if(state===S.AWAIT){ state = S.ALIGNED; stateT0 = now; holdProgress = 0;
+            setPrompt('天机已感应', '保持不动 · 灵识入盘', 'jade');
+            promptRules.style.display='none';
+          }
+          holdProgress = clamp((now - stateT0)/1600, 0, 1);
+          if(holdProgress >= 1){ setState(S.SENSED); }
+        } else {
+          if(state===S.ALIGNED){ state = S.AWAIT; stateT0 = now; holdProgress = 0; }
+          setPrompt(align.hint.includes('张开') ? '五指未展' : '掌心偏离石心', align.hint, 'warn');
+          promptRules.style.display='none';
+        }
+      }
+    } else {
+      align.ok = false; holdProgress = 0;
+      if(state!==S.AWAIT){ state=S.AWAIT; stateT0=now; }
+      if(camFailed && !demoMode){
+        setPrompt('引灵受阻', '摄像头未通 · 可点击下方「以心代掌」进入演示', 'warn');
+        promptRules.style.display='none';
+      } else {
+        setPrompt('请将掌心置于天机盘', '盘心掌印微光呼吸，待君以掌相叩');
+        promptRules.style.display='flex';
+      }
+    }
+  }
+  tickAnalysis(now);
+  requestAnimationFrame(tick);
+}
+
+/* ════════════════ 初始化 ════════════════ */
+function resizeAll(){ resizeBG(); prerenderStone(); }
+window.addEventListener('resize', ()=>{ resizeAll(); });
+resizeAll();
+requestAnimationFrame(tick);
+addLog('观星台夜雾初开 · 天机盘静候');
+</script>
+</body>
+</html>
